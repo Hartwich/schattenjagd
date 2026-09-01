@@ -1,8 +1,8 @@
 import Phaser from "phaser";
-import { transportModes, type TransportMode } from "../config.js";
+import { schattenjagdConfig, transportModes, type TransportMode } from "../config.js";
 import type { SchattenjagdPublicState, StationNode } from "../protocol.js";
 import { getSchattenjagdText, type SchattenjagdLanguage } from "../text.js";
-import { cityMapTextureKey, modeTicketTextureKeys } from "./assets.js";
+import { cityMapTextureKey, modeTicketTextureKeys, modeVehicleTextureKeys } from "./assets.js";
 import { cityRouteKey, cityRoutePaths } from "./cityRoutePaths.js";
 import { hostTheme, modeColors, modeGlow } from "./theme.js";
 
@@ -25,6 +25,8 @@ interface ScreenPoint {
   y: number;
 }
 
+type StationShape = "circle" | "square" | "hexagon";
+
 const BAR_HEIGHT = 94;
 const GUTTER = 12;
 
@@ -43,18 +45,6 @@ function stageLabel(state: SchattenjagdPublicState, language: SchattenjagdLangua
     default:
       return text.title;
   }
-}
-
-function bestMode(station: StationNode): TransportMode {
-  if (station.modes.includes("metro")) {
-    return "metro";
-  }
-
-  if (station.modes.includes("bus")) {
-    return "bus";
-  }
-
-  return "taxi";
 }
 
 function initials(name: string): string {
@@ -76,6 +66,66 @@ function initials(name: string): string {
 function parseColor(value: string, fallback = 0x38bdf8): number {
   const match = /^#?([0-9a-f]{6})$/i.exec(value ?? "");
   return match ? Number.parseInt(match[1], 16) : fallback;
+}
+
+function stationShape(station: StationNode): StationShape {
+  if (station.modes.includes("metro")) {
+    return "hexagon";
+  }
+
+  if (station.modes.includes("bus")) {
+    return "square";
+  }
+
+  return "circle";
+}
+
+function hexagonPoints(x: number, y: number, radius: number): Phaser.Geom.Point[] {
+  return Array.from({ length: 6 }, (_, index) => {
+    const angle = -Math.PI / 2 + (Math.PI * 2 * index) / 6;
+    return new Phaser.Geom.Point(x + Math.cos(angle) * radius, y + Math.sin(angle) * radius);
+  });
+}
+
+function fillStationShape(
+  graphics: Phaser.GameObjects.Graphics,
+  shape: StationShape,
+  x: number,
+  y: number,
+  radius: number,
+  color: number,
+  alpha = 1
+): void {
+  graphics.fillStyle(color, alpha);
+
+  if (shape === "circle") {
+    graphics.fillCircle(x, y, radius);
+  } else if (shape === "square") {
+    graphics.fillRoundedRect(x - radius, y - radius, radius * 2, radius * 2, radius * 0.22);
+  } else {
+    graphics.fillPoints(hexagonPoints(x, y, radius), true);
+  }
+}
+
+function strokeStationShape(
+  graphics: Phaser.GameObjects.Graphics,
+  shape: StationShape,
+  x: number,
+  y: number,
+  radius: number,
+  color: number,
+  width: number,
+  alpha = 1
+): void {
+  graphics.lineStyle(width, color, alpha);
+
+  if (shape === "circle") {
+    graphics.strokeCircle(x, y, radius);
+  } else if (shape === "square") {
+    graphics.strokeRoundedRect(x - radius, y - radius, radius * 2, radius * 2, radius * 0.22);
+  } else {
+    graphics.strokePoints(hexagonPoints(x, y, radius), true);
+  }
 }
 
 /** Verkehrsmittel-Symbol: Taxi = Kreis, Bus = Quadrat, Metro = Raute. */
@@ -303,6 +353,41 @@ export class SchattenjagdRenderer {
     graphics.strokePath();
   }
 
+  private strokeDashedPath(
+    graphics: Phaser.GameObjects.Graphics,
+    points: readonly ScreenPoint[],
+    dashLength: number,
+    gapLength: number
+  ): void {
+    for (let index = 1; index < points.length; index += 1) {
+      const from = points[index - 1];
+      const to = points[index];
+      const length = Math.hypot(to.x - from.x, to.y - from.y);
+
+      if (length <= 0) {
+        continue;
+      }
+
+      const step = dashLength + gapLength;
+
+      for (let distance = 0; distance < length; distance += step) {
+        const dashEnd = Math.min(length, distance + dashLength);
+        const startRatio = distance / length;
+        const endRatio = dashEnd / length;
+        graphics.beginPath();
+        graphics.moveTo(
+          Phaser.Math.Linear(from.x, to.x, startRatio),
+          Phaser.Math.Linear(from.y, to.y, startRatio)
+        );
+        graphics.lineTo(
+          Phaser.Math.Linear(from.x, to.x, endRatio),
+          Phaser.Math.Linear(from.y, to.y, endRatio)
+        );
+        graphics.strokePath();
+      }
+    }
+  }
+
   /** Projiziert das feste Spielbrett ohne Verzerrung deckungsgleich auf das Kartenbild. */
   private buildProjection(state: SchattenjagdPublicState, area: Rect): Projection {
     const inset = 5;
@@ -356,6 +441,7 @@ export class SchattenjagdRenderer {
       this.root.add(mapShade);
     }
 
+    const casingLayer = this.scene.add.graphics();
     const glowLayer = this.scene.add.graphics();
     const linkLayer = this.scene.add.graphics();
 
@@ -365,7 +451,7 @@ export class SchattenjagdRenderer {
       metro: Math.max(4, 6.2 * projection.scale)
     };
 
-    for (const mode of [...transportModes].reverse()) {
+    for (const mode of transportModes) {
       for (const link of state.map.links) {
         if (link.mode !== mode) {
           continue;
@@ -387,20 +473,36 @@ export class SchattenjagdRenderer {
           mode
         );
 
-        if (mode !== "taxi") {
-          glowLayer.lineStyle(lineWidths[mode] * 2.3, modeGlow[mode], 0.3);
-          this.strokePath(glowLayer, path);
-        }
+        casingLayer.lineStyle(lineWidths[mode] + 4, 0x020617, 0.9);
+        this.strokePath(casingLayer, path);
 
-        linkLayer.lineStyle(lineWidths[mode], modeColors[mode], mode === "taxi" ? 0.34 : 0.66);
-        this.strokePath(linkLayer, path);
+        glowLayer.lineStyle(lineWidths[mode] * 2.15, modeGlow[mode], mode === "taxi" ? 0.22 : 0.38);
+        this.strokePath(glowLayer, path);
+
+        linkLayer.lineStyle(
+          lineWidths[mode],
+          modeColors[mode],
+          mode === "taxi" ? 0.82 : mode === "bus" ? 0.9 : 0.96
+        );
+
+        if (mode === "metro") {
+          this.strokeDashedPath(
+            linkLayer,
+            path,
+            Math.max(11, 13 * projection.scale),
+            Math.max(5, 6 * projection.scale)
+          );
+        } else {
+          this.strokePath(linkLayer, path);
+        }
       }
     }
 
+    this.root.add(casingLayer);
     this.root.add(glowLayer);
     this.root.add(linkLayer);
 
-    const stationRadius = Math.max(11, 12.5 * projection.scale);
+    const stationRadius = Math.max(12, 14 * projection.scale);
     const labelSize = Math.max(12, Math.round(stationRadius * 1.05));
     const stationLayer = this.scene.add.graphics();
 
@@ -415,17 +517,52 @@ export class SchattenjagdRenderer {
     for (const station of state.map.stations) {
       const centreX = projection.toScreenX(station.x);
       const centreY = projection.toScreenY(station.y);
-      const mode = bestMode(station);
+      const shape = stationShape(station);
+      const occupants = detectivesByStation.get(station.id) ?? [];
+      const availableModes = [...transportModes]
+        .filter((mode) => station.modes.includes(mode))
+        .reverse();
 
-      stationLayer.fillStyle(0x081222, 0.98);
-      stationLayer.fillCircle(centreX, centreY, stationRadius);
-      stationLayer.lineStyle(Math.max(1.6, 2.2 * projection.scale), modeColors[mode], 0.9);
-      stationLayer.strokeCircle(centreX, centreY, stationRadius);
+      fillStationShape(stationLayer, shape, centreX, centreY, stationRadius + 3.5, 0x020617, 0.98);
+
+      availableModes.forEach((mode, index) => {
+        fillStationShape(
+          stationLayer,
+          shape,
+          centreX,
+          centreY,
+          stationRadius - index * 3.1,
+          modeColors[mode],
+          0.98
+        );
+      });
+
+      const coreRadius = Math.max(7.2, stationRadius - availableModes.length * 3.1);
+      const occupantColor = occupants[0] ? parseColor(occupants[0].color) : 0x07111f;
+      fillStationShape(
+        stationLayer,
+        shape,
+        centreX,
+        centreY,
+        coreRadius,
+        occupantColor,
+        occupants[0]?.connected === false ? 0.5 : 0.98
+      );
+      strokeStationShape(
+        stationLayer,
+        shape,
+        centreX,
+        centreY,
+        stationRadius + 0.5,
+        0xf8fafc,
+        Math.max(1.1, 1.4 * projection.scale),
+        0.76
+      );
     }
 
     this.root.add(stationLayer);
 
-    // Ermittlerringe liegen um die Station, damit die Nummer lesbar bleibt.
+    // Spielerfarbe fuellt das Stationszentrum; Ring und Initialen bleiben als Fernwirkung erhalten.
     const ringLayer = this.scene.add.graphics();
 
     for (const [stationId, occupants] of detectivesByStation) {
@@ -440,7 +577,9 @@ export class SchattenjagdRenderer {
 
       occupants.forEach((detective, index) => {
         const ringRadius = stationRadius + 4 + index * 5;
-        ringLayer.lineStyle(4, parseColor(detective.color), detective.connected ? 0.95 : 0.4);
+        ringLayer.lineStyle(5.5, 0x020617, 0.88);
+        ringLayer.strokeCircle(centreX, centreY, ringRadius);
+        ringLayer.lineStyle(3.5, parseColor(detective.color), detective.connected ? 1 : 0.4);
         ringLayer.strokeCircle(centreX, centreY, ringRadius);
 
         if (detective.isCapturer) {
@@ -483,7 +622,9 @@ export class SchattenjagdRenderer {
           {
             fontFamily: hostTheme.titleFont,
             fontSize: `${labelSize}px`,
-            color: "#eef4ff"
+            color: "#ffffff",
+            stroke: "#020617",
+            strokeThickness: 3
           }
         )
         .setOrigin(0.5);
@@ -873,17 +1014,34 @@ export class SchattenjagdRenderer {
     this.strokePath(trail, route);
     this.fxLayer.add(trail);
 
-    this.scene.tweens.add({
+    const routeLength = route.slice(1).reduce(
+      (total, point, index) => total + Math.hypot(point.x - route[index].x, point.y - route[index].y),
+      0
+    );
+    const pixelsPerSecond = mode
+      ? schattenjagdConfig.travelAnimation.pixelsPerSecond[mode]
+      : schattenjagdConfig.travelAnimation.pixelsPerSecond.taxi;
+    const travelDuration = Phaser.Math.Clamp(
+      (routeLength / pixelsPerSecond) * 1_000,
+      schattenjagdConfig.travelAnimation.minMs,
+      schattenjagdConfig.travelAnimation.maxMs
+    );
+
+    this.activeTweens.push(this.scene.tweens.add({
       targets: trail,
       alpha: { from: 0.85, to: 0 },
-      duration: 900,
+      delay: travelDuration * 0.62,
+      duration: travelDuration * 0.48,
       ease: "Quad.easeOut",
       onComplete: () => trail.destroy()
-    });
+    }));
 
-    const textureKey = mode ? modeTicketTextureKeys[mode] : null;
+    const textureKey = mode ? modeVehicleTextureKeys[mode] : null;
     const token = textureKey && this.scene.textures.exists(textureKey)
-      ? this.scene.add.image(from.x, from.y, textureKey).setDisplaySize(44, 44)
+      ? this.scene.add
+          .image(from.x, from.y, textureKey)
+          .setDisplaySize(mode === "taxi" ? 48 : mode === "bus" ? 54 : 58, mode === "taxi" ? 48 : mode === "bus" ? 54 : 58)
+          .setDepth(20)
       : this.scene.add.graphics().setPosition(from.x, from.y);
 
     if (token instanceof Phaser.GameObjects.Graphics) {
@@ -902,20 +1060,27 @@ export class SchattenjagdRenderer {
     }
 
     const progress = { value: 0 };
-    this.scene.tweens.add({
+    let lastPoint = from;
+    this.activeTweens.push(this.scene.tweens.add({
       targets: progress,
       value: 1,
-      duration: 620,
-      ease: "Cubic.easeInOut",
+      duration: travelDuration,
+      ease: "Sine.easeInOut",
       onUpdate: () => {
         const point = path.getPoint(progress.value);
         token.setPosition(point.x, point.y);
+
+        if (token instanceof Phaser.GameObjects.Image) {
+          token.setRotation(Phaser.Math.Angle.Between(lastPoint.x, lastPoint.y, point.x, point.y) + Math.PI / 2);
+        }
+
+        lastPoint = point;
       },
       onComplete: () => {
         token.destroy();
         this.spawnPing(to.x, to.y, color);
       }
-    });
+    }));
   }
 
   private spawnPing(x: number, y: number, color: number): void {

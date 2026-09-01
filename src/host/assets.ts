@@ -11,10 +11,20 @@ export const modeTicketTextureKeys: Record<TransportMode, string> = {
   metro: "schattenjagd-ticket-metro"
 };
 
+export const modeVehicleTextureKeys: Record<TransportMode, string> = {
+  taxi: "schattenjagd-vehicle-taxi",
+  bus: "schattenjagd-vehicle-bus",
+  metro: "schattenjagd-vehicle-metro"
+};
+
 export function preloadSchattenjagdAssets(scene: Phaser.Scene): void {
   scene.load.image(cityMapTextureKey, `${assetRoot}/city-night.webp`);
 
   for (const [mode, textureKey] of Object.entries(modeTicketTextureKeys)) {
     scene.load.image(textureKey, `${assetRoot}/ticket-${mode}.png`);
+  }
+
+  for (const [mode, textureKey] of Object.entries(modeVehicleTextureKeys)) {
+    scene.load.image(textureKey, `${assetRoot}/vehicle-${mode}.png`);
   }
 }

@@ -70,7 +70,7 @@ export const schattenjagdManifest = {
   },
 
   ownsScreens: ["round_intro", "result"],
-  visual: { accent: "#5d6f80", eyebrow: "Shadows" },
+  visual: { accent: "#5d6f80", icon: "ghost", eyebrow: "Shadows" },
   audio: { track: { profile: "mystery", bpm: 96, rootMidi: 45, masterGain: 0.12 } },
 } as const satisfies GameManifest;
 

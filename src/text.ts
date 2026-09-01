@@ -65,6 +65,7 @@ export interface SchattenjagdText {
   roleAssignedDetective: string;
   aiShadowActive: string;
   yourStation: string;
+  yourColor: string;
   shadowLabel: string;
   specialsLabel: string;
   sightingLabel: string;
@@ -138,6 +139,7 @@ const de: SchattenjagdText = {
   roleAssignedDetective: "Findet den Schatten, bevor die Zuege ausgehen.",
   aiShadowActive: "Der Schatten wird vom Server gesteuert.",
   yourStation: "Deine Station",
+  yourColor: "Deine Spielerfarbe",
   shadowLabel: "Schatten",
   specialsLabel: "Sonderzuege",
   sightingLabel: "Sichtung",
@@ -211,6 +213,7 @@ const en: SchattenjagdText = {
   roleAssignedDetective: "Find the Shadow before the turns run out.",
   aiShadowActive: "The Shadow is controlled by the server.",
   yourStation: "Your station",
+  yourColor: "Your player colour",
   shadowLabel: "Shadow",
   specialsLabel: "Special moves",
   sightingLabel: "Sighting",

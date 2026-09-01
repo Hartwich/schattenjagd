@@ -80,6 +80,16 @@ export const schattenjagdConfig = {
   mapHeight: 500,
   /** Wunschabstand (Hops) zwischen Schatten und Ermittlern zu Spielbeginn. */
   minimumStartDistance: 3,
+  /** Ruhige, gut verfolgbare Host-Animationen entlang der echten Strecken. */
+  travelAnimation: {
+    pixelsPerSecond: {
+      taxi: 135,
+      bus: 165,
+      metro: 195
+    } as Record<TransportMode, number>,
+    minMs: 1_800,
+    maxMs: 4_200
+  },
   score: {
     detectiveWin: 2,
     detectiveCaptureBonus: 1,

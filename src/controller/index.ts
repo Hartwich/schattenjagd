@@ -23,6 +23,8 @@ interface ChoiceLayoutModel {
   title: string;
   subtitle?: string;
   helperText?: string;
+  accentColor?: string;
+  identityLabel?: string;
   disabled: boolean;
   ready?: ReadyLayoutModel;
   choices: Array<{
@@ -49,6 +51,7 @@ interface ControllerGameRenderContext {
     player?: {
       id: string;
       isReady?: boolean;
+      color?: string;
     } | null;
     game?: {
       phase?: string;
@@ -158,6 +161,7 @@ export function buildSchattenjagdControllerModel(
   const stage = gameState.stage ?? "shadow_move";
   const options = gameState.options ?? [];
   const isShadow = role === "shadow";
+  const playerColor = state.player?.color ?? (isShadow ? "#f472b6" : "#38bdf8");
   const canAct =
     isPlaying &&
     Boolean(gameState.isMyTurn) &&
@@ -285,6 +289,8 @@ export function buildSchattenjagdControllerModel(
     ]
       .filter(Boolean)
       .join(" — "),
+    accentColor: playerColor,
+    identityLabel: text.yourColor,
     disabled: !canAct,
     choices,
     ready: buildReadyModel(context),
