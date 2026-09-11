@@ -7,6 +7,9 @@ export type SchattenjagdStage =
   | "caught"
   | "escaped";
 
+/** Die Brettvariante wird beim Erzeugen der Runde festgelegt. */
+export type CityMapVariant = "day" | "night";
+
 export interface StationNode {
   id: number;
   x: number;
@@ -78,6 +81,7 @@ export interface SchattenjagdState extends BaseRoundState {
   stage: SchattenjagdStage;
   turn: number;
   totalTurns: number;
+  mapVariant: CityMapVariant;
   map: TransitMap;
   shadowMode: ShadowAssignmentMode;
   shadowPlayerId: string | null;
@@ -117,6 +121,7 @@ export interface SchattenjagdPublicState {
   stage: SchattenjagdStage;
   turn: number;
   totalTurns: number;
+  mapVariant: CityMapVariant;
   revealTurns: readonly number[];
   nextRevealTurn: number | null;
   map: TransitMap;

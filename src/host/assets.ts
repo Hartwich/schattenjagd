@@ -1,9 +1,13 @@
 import Phaser from "phaser";
 import type { TransportMode } from "../config.js";
+import type { CityMapVariant } from "../protocol.js";
 
 const assetRoot = "/schattenjagd";
 
-export const cityMapTextureKey = "schattenjagd-city-night";
+export const cityMapTextureKeys: Record<CityMapVariant, string> = {
+  night: "schattenjagd-city-night",
+  day: "schattenjagd-city-day"
+};
 
 export const modeTicketTextureKeys: Record<TransportMode, string> = {
   taxi: "schattenjagd-ticket-taxi",
@@ -18,7 +22,8 @@ export const modeVehicleTextureKeys: Record<TransportMode, string> = {
 };
 
 export function preloadSchattenjagdAssets(scene: Phaser.Scene): void {
-  scene.load.image(cityMapTextureKey, `${assetRoot}/city-night.webp`);
+  scene.load.image(cityMapTextureKeys.night, `${assetRoot}/city-night.webp`);
+  scene.load.image(cityMapTextureKeys.day, `${assetRoot}/city-day.webp`);
 
   for (const [mode, textureKey] of Object.entries(modeTicketTextureKeys)) {
     scene.load.image(textureKey, `${assetRoot}/ticket-${mode}.png`);

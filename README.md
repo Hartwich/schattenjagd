@@ -8,7 +8,7 @@ Alpha. Der komplette Spielablauf ist spielbar: Kartengenerierung, Zugphasen, Tic
 
 ## Regeln in Kurzform
 
-- Gespielt wird auf einer festen, illustrierten Nacht-Stadtkarte mit 64 Stationen und drei Verkehrsebenen (Taxi, Bus, Metro). Stationen liegen auf Kreuzungen und Bruecken; die Linien und Bewegungsanimationen folgen den sichtbaren Strassenzuegen. Kreis-, Quadrat- und Sechseckstationen zeigen mit konzentrischen Farbflaechen alle dort verfuegbaren Verkehrsmittel. Ermittler besetzen das Stationszentrum in ihrer Spielerfarbe.
+- Gespielt wird auf einer festen, illustrierten Stadtkarte mit 64 Stationen und drei Verkehrsebenen (Taxi, Bus, Metro). Der Server waehlt beim Rundenstart passend zum Raum-Theme die Nacht- oder Tagesansicht; waehrend einer laufenden Runde bleibt diese Variante unveraendert. Stationen liegen auf Kreuzungen und Bruecken; die Linien und Bewegungsanimationen folgen den sichtbaren Strassenzuegen. Kreis-, Quadrat- und Sechseckstationen zeigen mit konzentrischen Farbflaechen alle dort verfuegbaren Verkehrsmittel. Ermittler besetzen das Stationszentrum in ihrer Spielerfarbe.
 - 22 Zuege. In den Zuegen 3, 8, 13, 18 und 22 wird die Position des Schattens oeffentlich sichtbar.
 - Pro Zug zieht zuerst der Schatten, danach ziehen alle Ermittler gleichzeitig innerhalb ihres Zeitfensters.
 - Der Schatten reist unbegrenzt, verraet aber nach jedem Zug das benutzte Verkehrsmittel.
@@ -63,7 +63,7 @@ Die Plattform laedt dieses Spiel nur, wenn das Repo lokal existiert und `npm run
 
 ## Eigenstaendigkeit und Rechte
 
-Karte, Stationsnetz, Namen, Rollenbezeichnungen, Regelwerte, Texte und Grafik dieses Repos sind Eigenentwicklungen. Es werden keine fremden Marken, Kartenvorlagen, Illustrationen oder Textbausteine verwendet. Das feste Netz wird deterministisch erzeugt (`src/map/generateTransitMap.ts`) und deckungsgleich auf eine eigene fiktive Stadtillustration gelegt. Taxi-, Bus- und Metro-Tickets sowie die animierten Fahrzeugmarker sind ebenfalls eigene Spielgrafiken.
+Karte, Stationsnetz, Namen, Rollenbezeichnungen, Regelwerte, Texte und Grafik dieses Repos sind Eigenentwicklungen. Es werden keine fremden Marken, Kartenvorlagen, Illustrationen oder Textbausteine verwendet. Das feste Netz wird deterministisch erzeugt (`src/map/generateTransitMap.ts`) und deckungsgleich auf zwei eigene fiktive Stadtillustrationen (Nacht und Tag) gelegt. Taxi-, Bus- und Metro-Tickets sowie die animierten Fahrzeugmarker sind ebenfalls eigene Spielgrafiken.
 
 ## Package-Entrypoints
 

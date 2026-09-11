@@ -2,9 +2,10 @@ import Phaser from "phaser";
 import { schattenjagdConfig, transportModes, type TransportMode } from "../config.js";
 import type { SchattenjagdPublicState, StationNode } from "../protocol.js";
 import { getSchattenjagdText, type SchattenjagdLanguage } from "../text.js";
-import { cityMapTextureKey, modeTicketTextureKeys, modeVehicleTextureKeys } from "./assets.js";
+import { modeTicketTextureKeys, modeVehicleTextureKeys } from "./assets.js";
 import { cityRouteKey, cityRoutePaths } from "./cityRoutePaths.js";
-import { hostTheme, modeColors, modeGlow } from "./theme.js";
+import { cityBoardStyles } from "./cityBoardStyle.js";
+import { hostTheme, modeColors } from "./theme.js";
 
 interface Rect {
   x: number;
@@ -234,7 +235,7 @@ export class SchattenjagdRenderer {
       return;
     }
 
-    const signature = `${state.map.stations.length}:${state.map.links.length}:${state.map.stations[0]?.x}:${state.map.stations[0]?.y}`;
+    const signature = `${state.mapVariant ?? "night"}:${state.map.stations.length}:${state.map.links.length}:${state.map.stations[0]?.x}:${state.map.stations[0]?.y}`;
 
     if (signature !== this.mapSignature) {
       this.mapSignature = signature;
@@ -418,20 +419,21 @@ export class SchattenjagdRenderer {
 
     const projection = this.buildProjection(state, area);
     const stationById = new Map(state.map.stations.map((station) => [station.id, station]));
+    const boardStyle = cityBoardStyles[state.mapVariant ?? "night"];
 
-    if (this.scene.textures.exists(cityMapTextureKey)) {
+    if (this.scene.textures.exists(boardStyle.textureKey)) {
       const mapImage = this.scene.add
         .image(
           projection.board.x + projection.board.width / 2,
           projection.board.y + projection.board.height / 2,
-          cityMapTextureKey
+          boardStyle.textureKey
         )
         .setDisplaySize(projection.board.width, projection.board.height)
-        .setAlpha(0.9);
+        .setAlpha(boardStyle.mapAlpha);
       this.root.add(mapImage);
 
       const mapShade = this.scene.add.graphics();
-      mapShade.fillStyle(0x020617, 0.14);
+      mapShade.fillStyle(boardStyle.casing, boardStyle.shade);
       mapShade.fillRect(
         projection.board.x,
         projection.board.y,
@@ -473,15 +475,19 @@ export class SchattenjagdRenderer {
           mode
         );
 
-        casingLayer.lineStyle(lineWidths[mode] + 4, 0x020617, 0.9);
+        casingLayer.lineStyle(lineWidths[mode] + 4, boardStyle.casing, 0.92);
         this.strokePath(casingLayer, path);
 
-        glowLayer.lineStyle(lineWidths[mode] * 2.15, modeGlow[mode], mode === "taxi" ? 0.22 : 0.38);
+        glowLayer.lineStyle(
+          lineWidths[mode] * 2.15,
+          boardStyle.modeGlow[mode],
+          mode === "taxi" ? 0.22 : 0.38
+        );
         this.strokePath(glowLayer, path);
 
         linkLayer.lineStyle(
           lineWidths[mode],
-          modeColors[mode],
+          boardStyle.modeColors[mode],
           mode === "taxi" ? 0.82 : mode === "bus" ? 0.9 : 0.96
         );
 
@@ -523,7 +529,15 @@ export class SchattenjagdRenderer {
         .filter((mode) => station.modes.includes(mode))
         .reverse();
 
-      fillStationShape(stationLayer, shape, centreX, centreY, stationRadius + 3.5, 0x020617, 0.98);
+      fillStationShape(
+        stationLayer,
+        shape,
+        centreX,
+        centreY,
+        stationRadius + 3.5,
+        boardStyle.stationOuter,
+        0.98
+      );
 
       availableModes.forEach((mode, index) => {
         fillStationShape(
@@ -532,13 +546,13 @@ export class SchattenjagdRenderer {
           centreX,
           centreY,
           stationRadius - index * 3.1,
-          modeColors[mode],
+          boardStyle.modeColors[mode],
           0.98
         );
       });
 
       const coreRadius = Math.max(7.2, stationRadius - availableModes.length * 3.1);
-      const occupantColor = occupants[0] ? parseColor(occupants[0].color) : 0x07111f;
+      const occupantColor = occupants[0] ? parseColor(occupants[0].color) : boardStyle.casing;
       fillStationShape(
         stationLayer,
         shape,
@@ -554,7 +568,7 @@ export class SchattenjagdRenderer {
         centreX,
         centreY,
         stationRadius + 0.5,
-        0xf8fafc,
+        boardStyle.stationOutline,
         Math.max(1.1, 1.4 * projection.scale),
         0.76
       );
@@ -577,7 +591,7 @@ export class SchattenjagdRenderer {
 
       occupants.forEach((detective, index) => {
         const ringRadius = stationRadius + 4 + index * 5;
-        ringLayer.lineStyle(5.5, 0x020617, 0.88);
+        ringLayer.lineStyle(5.5, boardStyle.casing, 0.88);
         ringLayer.strokeCircle(centreX, centreY, ringRadius);
         ringLayer.lineStyle(3.5, parseColor(detective.color), detective.connected ? 1 : 0.4);
         ringLayer.strokeCircle(centreX, centreY, ringRadius);
@@ -623,7 +637,7 @@ export class SchattenjagdRenderer {
             fontFamily: hostTheme.titleFont,
             fontSize: `${labelSize}px`,
             color: "#ffffff",
-            stroke: "#020617",
+            stroke: boardStyle.labelStroke,
             strokeThickness: 3
           }
         )
