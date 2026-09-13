@@ -4,7 +4,7 @@ Verfolgungsspiel mit verdeckter Bewegung fuer Open Party Lab. Ein Spieler reist 
 
 ## Status
 
-Alpha. Der komplette Spielablauf ist spielbar: Kartengenerierung, Zugphasen, Tickets, Sonderzuege, Enttarnungsrunden, Fang- und Fluchtauswertung, KI-Schatten.
+Alpha. Der komplette Spielablauf ist spielbar: Kartengenerierung, Zugphasen, Tickets, Sonderzuege, Enttarnungsrunden, Fang- und Fluchtauswertung, KI-Schatten. Gegen die Server-KI reichen zwei Spieler; mit menschlichem Schatten werden mindestens drei Spieler benoetigt.
 
 ## Regeln in Kurzform
 

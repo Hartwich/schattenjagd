@@ -6,6 +6,10 @@ export const schattenjagdManifest = {
   displayName: "Schattenjagd",
   description: "Ermittler jagen einen verdeckt reisenden Schatten durch ein zufaellig erzeugtes Verkehrsnetz.",
   minPlayers: 3,
+  minPlayersBySetting: {
+    settingKey: schattenjagdRoomSettingKeys.shadowMode,
+    values: { ai: 2 }
+  },
   maxPlayers: 8,
   hostView: "SchattenjagdHostScene",
   controllerView: "schattenjagd",
