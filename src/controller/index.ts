@@ -132,12 +132,12 @@ function buildHelperText(
       return gameState.doubleMoveStep === 2 ? text.doubleSecondStep : text.shadowTurnHint;
     }
 
-    return text.detectiveWaitHint;
+    return gameState.activeDetectiveName ? text.activeDetective(gameState.activeDetectiveName) : text.detectiveWaitHint;
   }
 
   if (gameState.role === "detective") {
     if (gameState.stage === "detective_move") {
-      return gameState.hasMoved ? text.detectiveWaitHint : text.detectiveTurnHint;
+      return gameState.isMyTurn ? text.detectiveTurnHint : gameState.activeDetectiveName ? text.activeDetective(gameState.activeDetectiveName) : text.detectiveWaitHint;
     }
 
     return text.shadowWaitHint;

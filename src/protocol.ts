@@ -78,6 +78,7 @@ export interface SchattenjagdConfigureLobbyHostAction {
 }
 
 export interface SchattenjagdState extends BaseRoundState {
+  activeDetectivePlayerId: string | null;
   stage: SchattenjagdStage;
   turn: number;
   totalTurns: number;
@@ -118,6 +119,8 @@ export interface PublicDetective {
 }
 
 export interface SchattenjagdPublicState {
+  activeDetectivePlayerId: string | null;
+  reachableOptions: SchattenjagdMoveOption[];
   stage: SchattenjagdStage;
   turn: number;
   totalTurns: number;
@@ -155,6 +158,7 @@ export interface SchattenjagdMoveOption {
 }
 
 export interface SchattenjagdControllerState {
+  activeDetectiveName: string | null;
   role: "shadow" | "detective" | "spectator";
   roleLabel: string;
   stage: SchattenjagdStage;

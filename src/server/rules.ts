@@ -145,6 +145,7 @@ export function beginShadowTurn(
   return {
     ...state,
     stage: "shadow_move",
+    activeDetectivePlayerId: null,
     doubleMoveStep: 1,
     turnEndsAt: resolveTurnEndsAt(state, now, isAiShadow),
     aiDecideAt: isAiShadow ? now + AI_THINK_MS : null,
@@ -188,6 +189,7 @@ export function beginDetectiveTurn(
   return {
     ...revealed,
     stage: "detective_move",
+    activeDetectivePlayerId: revealed.detectives.find((entry) => entry.movedInTurn < revealed.turn)?.playerId ?? null,
     turnEndsAt: resolveTurnEndsAt(revealed, now, false),
     aiDecideAt: null,
     updatedAt: now,
@@ -269,7 +271,7 @@ export function applyDetectiveMove(
   const text = getSchattenjagdText(language);
   const detective = state.detectives.find((entry) => entry.playerId === playerId);
 
-  if (!detective || detective.movedInTurn >= state.turn) {
+  if (state.stage !== "detective_move" || state.activeDetectivePlayerId !== playerId || !detective || detective.movedInTurn >= state.turn) {
     return state;
   }
 

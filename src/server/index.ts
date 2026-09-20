@@ -37,7 +37,6 @@ import {
   finishDetectivePhase,
   listDetectiveOptions,
   listShadowOptions,
-  pendingDetectives
 } from "./rules.js";
 import { chooseStartPositions } from "./setup.js";
 
@@ -106,6 +105,27 @@ function isAiShadow(state: SchattenjagdState): boolean {
   return state.shadowPlayerId === null;
 }
 
+/** Advance in seating order; skipped seats cannot re-enter this turn. */
+function advanceDetective(state: SchattenjagdState, context: ServerGameContext): SchattenjagdState {
+  if (state.stage !== "detective_move" || state.outcome !== null) return state;
+  const connected = connectedPlayerIds(context);
+  let next = state;
+  for (const detective of state.detectives) {
+    if (detective.movedInTurn >= state.turn) continue;
+    if (!connected.has(detective.playerId) || !listDetectiveOptions(next, detective).some((option) => !option.blocked)) {
+      next = { ...next, detectives: next.detectives.map((entry) => entry.playerId === detective.playerId ? { ...entry, movedInTurn: state.turn } : entry) };
+      continue;
+    }
+    return {
+      ...next,
+      activeDetectivePlayerId: detective.playerId,
+      turnEndsAt: next.turnDurationMs === null ? null : context.now + next.turnDurationMs,
+      updatedAt: context.now
+    };
+  }
+  return finishDetectivePhase({ ...next, activeDetectivePlayerId: null }, context.now, language(context), isAiShadow(next), buildNameResolver(context));
+}
+
 function autoPlayShadow(
   state: SchattenjagdState,
   context: ServerGameContext
@@ -169,6 +189,7 @@ export const serverGame: ServerGame<
         message: text.preparing
       }),
       stage: "shadow_move",
+      activeDetectivePlayerId: null,
       turn: 1,
       totalTurns: schattenjagdConfig.totalTurns,
       mapVariant: context.theme === "light" ? "day" : "night",
@@ -298,7 +319,8 @@ export const serverGame: ServerGame<
     }
 
     if (state.stage === "shadow_move" && isShadowPlayer) {
-      return applyShadowMove(state, input.stationId, input.mode, now, language(context), false);
+      const moved = applyShadowMove(state, input.stationId, input.mode, now, language(context), false);
+      return moved !== state ? advanceDetective(moved, context) : state;
     }
 
     if (state.stage === "detective_move") {
@@ -316,26 +338,7 @@ export const serverGame: ServerGame<
         return movedState;
       }
 
-      const connected = connectedPlayerIds(context);
-
-      if (pendingDetectives(movedState, connected).length === 0) {
-        return finishDetectivePhase(
-          movedState,
-          now,
-          language(context),
-          isAiShadow(movedState),
-          buildNameResolver(context)
-        );
-      }
-
-      const movedCount = movedState.detectives.filter(
-        (detective) => detective.movedInTurn >= movedState.turn
-      ).length;
-
-      return {
-        ...movedState,
-        message: text.detectiveProgress(movedCount, movedState.detectives.length)
-      };
+      return advanceDetective(movedState, context);
     }
 
     return state;
@@ -354,24 +357,18 @@ export const serverGame: ServerGame<
       const timeoutDue = state.turnEndsAt !== null && now >= state.turnEndsAt;
 
       if (aiDue || timeoutDue || !shadowConnected) {
-        return autoPlayShadow(state, context);
+        return advanceDetective(autoPlayShadow(state, context), context);
       }
 
       return state;
     }
 
     if (state.stage === "detective_move") {
-      const stillPending = pendingDetectives(state, connected);
+      const active = state.detectives.find((entry) => entry.playerId === state.activeDetectivePlayerId);
       const timeoutDue = state.turnEndsAt !== null && now >= state.turnEndsAt;
 
-      if (stillPending.length === 0 || timeoutDue) {
-        return finishDetectivePhase(
-          state,
-          now,
-          language(context),
-          isAiShadow(state),
-          buildNameResolver(context)
-        );
+      if (!active || !connected.has(active.playerId) || !listDetectiveOptions(state, active).some((option) => !option.blocked) || timeoutDue) {
+        return advanceDetective({ ...state, detectives: state.detectives.map((entry) => entry.playerId === active?.playerId ? { ...entry, movedInTurn: state.turn } : entry) }, context);
       }
     }
 
@@ -423,6 +420,10 @@ export const serverGame: ServerGame<
       revealTurns: schattenjagdConfig.revealTurns,
       nextRevealTurn: nextRevealTurn(state.turn),
       map: state.map,
+      activeDetectivePlayerId: state.stage === "detective_move" && !finished ? state.activeDetectivePlayerId : null,
+      reachableOptions: state.stage === "detective_move" && !finished
+        ? state.detectives.filter((entry) => entry.playerId === state.activeDetectivePlayerId).flatMap((entry) => listDetectiveOptions(state, entry).filter((option) => !option.blocked))
+        : [],
       detectives: state.detectives.map((detective) => ({
         playerId: detective.playerId,
         name: resolveName(detective.playerId),
@@ -474,18 +475,19 @@ export const serverGame: ServerGame<
 
     const isMyTurn =
       (isShadow && state.stage === "shadow_move") ||
-      (Boolean(detective) && state.stage === "detective_move" && (detective?.movedInTurn ?? 0) < state.turn);
+      (Boolean(detective) && state.stage === "detective_move" && state.activeDetectivePlayerId === playerId && !finished);
 
     const options = isShadow
       ? state.stage === "shadow_move"
         ? listShadowOptions(state)
         : []
-      : detective && state.stage === "detective_move" && detective.movedInTurn < state.turn
+      : detective && isMyTurn
         ? listDetectiveOptions(state, detective)
         : [];
 
     return {
       role,
+      activeDetectiveName: state.stage === "detective_move" && state.activeDetectivePlayerId ? resolveName(state.activeDetectivePlayerId) : null,
       roleLabel: isShadow ? text.shadowRole : detective ? text.detectiveRole : text.spectatorRole,
       stage: state.stage,
       turn: state.turn,

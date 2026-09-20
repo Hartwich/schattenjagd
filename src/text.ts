@@ -22,6 +22,7 @@ export interface SchattenjagdText {
   shadowWaitHint: string;
   detectiveTurnHint: string;
   detectiveWaitHint: string;
+  activeDetective: (name: string) => string;
   shadowMovedPublic: (mode: string) => string;
   shadowMovedShrouded: string;
   shadowSurfaced: (station: number) => string;
@@ -96,6 +97,7 @@ const de: SchattenjagdText = {
   shadowWaitHint: "Der Schatten plant seinen Zug.",
   detectiveTurnHint: "Waehle deine naechste Station.",
   detectiveWaitHint: "Warte auf die uebrigen Ermittler.",
+  activeDetective: (name) => `${name} ist am Zug`,
   shadowMovedPublic: (mode) => `Der Schatten ist mit ${mode} gereist.`,
   shadowMovedShrouded: "Der Schatten hat seine Spur verschleiert.",
   shadowSurfaced: (station) => `Der Schatten wurde an Station ${station} gesichtet.`,
@@ -147,6 +149,7 @@ const de: SchattenjagdText = {
 };
 
 const en: SchattenjagdText = {
+  activeDetective: (name) => `${name}'s turn`,
   title: "Shadow Hunt",
   shadowRole: "You are the Shadow",
   detectiveRole: "You are an investigator",

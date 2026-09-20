@@ -38,7 +38,9 @@ function stageLabel(state: SchattenjagdPublicState, language: SchattenjagdLangua
     case "shadow_move":
       return text.stageShadow;
     case "detective_move":
-      return text.stageDetective;
+      return state.detectives.find((entry) => entry.playerId === state.activeDetectivePlayerId)
+        ? text.activeDetective(state.detectives.find((entry) => entry.playerId === state.activeDetectivePlayerId)!.name)
+        : text.stageDetective;
     case "caught":
       return text.stageCaught;
     case "escaped":
@@ -331,7 +333,22 @@ export class SchattenjagdRenderer {
       ...interior.map(([x, y]) => ({ x, y })),
       to
     ];
-    const ordered = reverse ? mapPoints.reverse() : mapPoints;
+    if (mapPoints.length === 2) {
+      mapPoints.splice(1, 0, { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 });
+    }
+    // Fixed transport lanes keep shared corridors distinct. Endpoints remain
+    // at station centres, and movement uses exactly the same geometry.
+    const lane = mode === "taxi" ? -4 : mode === "metro" ? 4 : 0;
+    const shifted = mapPoints.map((point, index) => {
+      if (index === 0 || index === mapPoints.length - 1) return point;
+      const before = mapPoints[index - 1];
+      const after = mapPoints[index + 1];
+      const dx = after.x - before.x;
+      const dy = after.y - before.y;
+      const length = Math.hypot(dx, dy) || 1;
+      return { x: point.x - dy / length * lane, y: point.y + dx / length * lane };
+    });
+    const ordered = reverse ? shifted.reverse() : shifted;
 
     return ordered.map((point) => ({
       x: projection.toScreenX(point.x),
@@ -420,6 +437,8 @@ export class SchattenjagdRenderer {
     const projection = this.buildProjection(state, area);
     const stationById = new Map(state.map.stations.map((station) => [station.id, station]));
     const boardStyle = cityBoardStyles[state.mapVariant ?? "night"];
+    const activeDetective = state.detectives.find((entry) => entry.playerId === state.activeDetectivePlayerId);
+    const reachable = new Set((state.reachableOptions ?? []).map((option) => option.stationId));
 
     if (this.scene.textures.exists(boardStyle.textureKey)) {
       const mapImage = this.scene.add
@@ -433,7 +452,7 @@ export class SchattenjagdRenderer {
       this.root.add(mapImage);
 
       const mapShade = this.scene.add.graphics();
-      mapShade.fillStyle(boardStyle.casing, boardStyle.shade);
+      mapShade.fillStyle(boardStyle.casing, Math.max(boardStyle.shade, 0.32));
       mapShade.fillRect(
         projection.board.x,
         projection.board.y,
@@ -443,21 +462,24 @@ export class SchattenjagdRenderer {
       this.root.add(mapShade);
     }
 
-    const casingLayer = this.scene.add.graphics();
-    const glowLayer = this.scene.add.graphics();
     const linkLayer = this.scene.add.graphics();
 
     const lineWidths: Record<TransportMode, number> = {
-      taxi: Math.max(1.4, 2 * projection.scale),
-      bus: Math.max(2.6, 3.8 * projection.scale),
-      metro: Math.max(4, 6.2 * projection.scale)
+      taxi: Math.max(1.6, 2.4 * projection.scale),
+      bus: Math.max(2, 3 * projection.scale),
+      metro: Math.max(2.4, 3.6 * projection.scale)
     };
 
-    for (const mode of transportModes) {
-      for (const link of state.map.links) {
-        if (link.mode !== mode) {
-          continue;
-        }
+    const isSelectable = (link: SchattenjagdPublicState["map"]["links"][number]): boolean => Boolean(
+      activeDetective && (link.a === activeDetective.stationId || link.b === activeDetective.stationId)
+      && (state.reachableOptions ?? []).some((option) => option.mode === link.mode
+        && option.stationId === (link.a === activeDetective.stationId ? link.b : link.a))
+    );
+    // Active routes go on top so another corridor cannot hide a legal move.
+    const orderedLinks = [...state.map.links].sort((a, b) => Number(isSelectable(a)) - Number(isSelectable(b))
+      || transportModes.indexOf(a.mode) - transportModes.indexOf(b.mode));
+    for (const link of orderedLinks) {
+        const mode = link.mode;
 
         const from = stationById.get(link.a);
         const to = stationById.get(link.b);
@@ -475,20 +497,17 @@ export class SchattenjagdRenderer {
           mode
         );
 
-        casingLayer.lineStyle(lineWidths[mode] + 4, boardStyle.casing, 0.92);
-        this.strokePath(casingLayer, path);
-
-        glowLayer.lineStyle(
-          lineWidths[mode] * 2.15,
-          boardStyle.modeGlow[mode],
-          mode === "taxi" ? 0.22 : 0.38
-        );
-        this.strokePath(glowLayer, path);
+        const selectable = isSelectable(link);
+        const opacity = activeDetective && !selectable ? 0.38 : 1;
+        // Draw each casing with its own line, so crossings are bridges rather
+        // than apparent junctions. Only numbered stations allow transfers.
+        linkLayer.lineStyle(lineWidths[mode] + 3, boardStyle.casing, 1);
+        this.strokePath(linkLayer, path);
 
         linkLayer.lineStyle(
           lineWidths[mode],
           boardStyle.modeColors[mode],
-          mode === "taxi" ? 0.82 : mode === "bus" ? 0.9 : 0.96
+          opacity
         );
 
         if (mode === "metro") {
@@ -501,11 +520,8 @@ export class SchattenjagdRenderer {
         } else {
           this.strokePath(linkLayer, path);
         }
-      }
     }
 
-    this.root.add(casingLayer);
-    this.root.add(glowLayer);
     this.root.add(linkLayer);
 
     const stationRadius = Math.max(12, 14 * projection.scale);
@@ -525,6 +541,10 @@ export class SchattenjagdRenderer {
       const centreY = projection.toScreenY(station.y);
       const shape = stationShape(station);
       const occupants = detectivesByStation.get(station.id) ?? [];
+      if (reachable.has(station.id) || activeDetective?.stationId === station.id) {
+        strokeStationShape(stationLayer, shape, centreX, centreY, stationRadius + 7,
+          parseColor(activeDetective?.color ?? "#ffffff"), activeDetective?.stationId === station.id ? 4 : 2.5, 1);
+      }
       const availableModes = [...transportModes]
         .filter((mode) => station.modes.includes(mode))
         .reverse();
