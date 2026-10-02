@@ -1,9 +1,9 @@
 import Phaser from "phaser";
 import { schattenjagdConfig, transportModes, type TransportMode } from "../config.js";
-import type { SchattenjagdPublicState, StationNode } from "../protocol.js";
+import type { SchattenjagdPublicState, StationNode, TransitMap } from "../protocol.js";
 import { getSchattenjagdText, type SchattenjagdLanguage } from "../text.js";
 import { modeTicketTextureKeys, modeVehicleTextureKeys } from "./assets.js";
-import { cityRouteKey, cityRoutePaths } from "./cityRoutePaths.js";
+import { buildCityNetwork, CITY_LANE_WIDTH, networkRoutePoints, roadKey, routeKey, sectionLane, type CityNetwork } from "../map/cityNetwork.js";
 import { cityBoardStyles } from "./cityBoardStyle.js";
 import { hostTheme, modeColors } from "./theme.js";
 
@@ -131,7 +131,7 @@ function strokeStationShape(
   }
 }
 
-/** Verkehrsmittel-Symbol: Taxi = Kreis, Bus = Quadrat, Metro = Raute. */
+/** Verkehrsmittel-Symbol: Taxi = Kreis, Bus = Quadrat, Metro = Sechseck. */
 function drawModeSymbol(
   graphics: Phaser.GameObjects.Graphics,
   mode: TransportMode | null,
@@ -153,15 +153,7 @@ function drawModeSymbol(
   }
 
   if (mode === "metro") {
-    graphics.fillPoints(
-      [
-        new Phaser.Geom.Point(x, y - size * 1.25),
-        new Phaser.Geom.Point(x + size * 1.25, y),
-        new Phaser.Geom.Point(x, y + size * 1.25),
-        new Phaser.Geom.Point(x - size * 1.25, y)
-      ],
-      true
-    );
+    graphics.fillPoints(hexagonPoints(x, y, size * 1.25), true);
     return;
   }
 
@@ -180,6 +172,8 @@ export class SchattenjagdRenderer {
   private lastStations = new Map<string, number>();
   private lastShadowSighting: string | null = null;
   private mapSignature = "";
+  private networkMap: TransitMap | null = null;
+  private network: CityNetwork | null = null;
 
   constructor(private readonly scene: Phaser.Scene) {
     this.root = scene.add.container(0, 0);
@@ -326,34 +320,21 @@ export class SchattenjagdRenderer {
       return [];
     }
 
-    const key = cityRouteKey(a, b, mode);
-    const interior = cityRoutePaths[key] ?? [];
-    const mapPoints: Array<{ x: number; y: number }> = [
-      from,
-      ...interior.map(([x, y]) => ({ x, y })),
-      to
-    ];
-    if (mapPoints.length === 2) {
-      mapPoints.splice(1, 0, { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 });
-    }
-    // Fixed transport lanes keep shared corridors distinct. Endpoints remain
-    // at station centres, and movement uses exactly the same geometry.
-    const lane = mode === "taxi" ? -4 : mode === "metro" ? 4 : 0;
-    const shifted = mapPoints.map((point, index) => {
-      if (index === 0 || index === mapPoints.length - 1) return point;
-      const before = mapPoints[index - 1];
-      const after = mapPoints[index + 1];
-      const dx = after.x - before.x;
-      const dy = after.y - before.y;
-      const length = Math.hypot(dx, dy) || 1;
-      return { x: point.x - dy / length * lane, y: point.y + dx / length * lane };
-    });
-    const ordered = reverse ? shifted.reverse() : shifted;
+    const points = networkRoutePoints(this.getNetwork(state.map), { a, b, mode });
+    const ordered = reverse ? points.reverse() : points;
 
     return ordered.map((point) => ({
       x: projection.toScreenX(point.x),
       y: projection.toScreenY(point.y)
     }));
+  }
+
+  private getNetwork(map: TransitMap): CityNetwork {
+    if (this.networkMap !== map || !this.network) {
+      this.networkMap = map;
+      this.network = buildCityNetwork(map);
+    }
+    return this.network;
   }
 
   private strokePath(graphics: Phaser.GameObjects.Graphics, points: readonly ScreenPoint[]): void {
@@ -369,41 +350,6 @@ export class SchattenjagdRenderer {
     }
 
     graphics.strokePath();
-  }
-
-  private strokeDashedPath(
-    graphics: Phaser.GameObjects.Graphics,
-    points: readonly ScreenPoint[],
-    dashLength: number,
-    gapLength: number
-  ): void {
-    for (let index = 1; index < points.length; index += 1) {
-      const from = points[index - 1];
-      const to = points[index];
-      const length = Math.hypot(to.x - from.x, to.y - from.y);
-
-      if (length <= 0) {
-        continue;
-      }
-
-      const step = dashLength + gapLength;
-
-      for (let distance = 0; distance < length; distance += step) {
-        const dashEnd = Math.min(length, distance + dashLength);
-        const startRatio = distance / length;
-        const endRatio = dashEnd / length;
-        graphics.beginPath();
-        graphics.moveTo(
-          Phaser.Math.Linear(from.x, to.x, startRatio),
-          Phaser.Math.Linear(from.y, to.y, startRatio)
-        );
-        graphics.lineTo(
-          Phaser.Math.Linear(from.x, to.x, endRatio),
-          Phaser.Math.Linear(from.y, to.y, endRatio)
-        );
-        graphics.strokePath();
-      }
-    }
   }
 
   /** Projiziert das feste Spielbrett ohne Verzerrung deckungsgleich auf das Kartenbild. */
@@ -462,67 +408,44 @@ export class SchattenjagdRenderer {
       this.root.add(mapShade);
     }
 
-    const linkLayer = this.scene.add.graphics();
-
-    const lineWidths: Record<TransportMode, number> = {
-      taxi: Math.max(1.6, 2.4 * projection.scale),
-      bus: Math.max(2, 3 * projection.scale),
-      metro: Math.max(2.4, 3.6 * projection.scale)
-    };
-
-    const isSelectable = (link: SchattenjagdPublicState["map"]["links"][number]): boolean => Boolean(
-      activeDetective && (link.a === activeDetective.stationId || link.b === activeDetective.stationId)
-      && (state.reachableOptions ?? []).some((option) => option.mode === link.mode
-        && option.stationId === (link.a === activeDetective.stationId ? link.b : link.a))
-    );
-    // Active routes go on top so another corridor cannot hide a legal move.
-    const orderedLinks = [...state.map.links].sort((a, b) => Number(isSelectable(a)) - Number(isSelectable(b))
-      || transportModes.indexOf(a.mode) - transportModes.indexOf(b.mode));
-    for (const link of orderedLinks) {
-        const mode = link.mode;
-
-        const from = stationById.get(link.a);
-        const to = stationById.get(link.b);
-
-        if (!from || !to) {
-          continue;
+    const network = this.getNetwork(state.map);
+    const selectedLanes = new Set<string>();
+    if (activeDetective) {
+      for (const option of state.reachableOptions ?? []) {
+        const route = network.routes.get(routeKey({
+          a: activeDetective.stationId, b: option.stationId, mode: option.mode
+        })) ?? [];
+        for (let index = 1; index < route.length; index += 1) {
+          selectedLanes.add(`${roadKey(route[index - 1], route[index])}:${option.mode}`);
         }
-
-        const path = this.buildLinkPath(
-          state,
-          projection,
-          stationById,
-          link.a,
-          link.b,
-          mode
-        );
-
-        const selectable = isSelectable(link);
-        const opacity = activeDetective && !selectable ? 0.38 : 1;
-        // Draw each casing with its own line, so crossings are bridges rather
-        // than apparent junctions. Only numbered stations allow transfers.
-        linkLayer.lineStyle(lineWidths[mode] + 3, boardStyle.casing, 1);
-        this.strokePath(linkLayer, path);
-
-        linkLayer.lineStyle(
-          lineWidths[mode],
-          boardStyle.modeColors[mode],
-          opacity
-        );
-
-        if (mode === "metro") {
-          this.strokeDashedPath(
-            linkLayer,
-            path,
-            Math.max(11, 13 * projection.scale),
-            Math.max(5, 6 * projection.scale)
-          );
-        } else {
-          this.strokePath(linkLayer, path);
-        }
+      }
     }
-
-    this.root.add(linkLayer);
+    const toScreen = (points: readonly ScreenPoint[]): ScreenPoint[] => points.map(point => ({
+      x: projection.toScreenX(point.x), y: projection.toScreenY(point.y)
+    }));
+    const lanes = this.scene.add.graphics();
+    const highlights = this.scene.add.graphics();
+    const lineWidth = CITY_LANE_WIDTH * projection.scale;
+    for (const section of network.sections) {
+      // Just a fine outer outline, rather than a broad road bed. Lane width
+      // equals lane spacing, so the coloured tracks touch at shared bends.
+      for (const mode of transportModes) {
+        if (!section.modes.has(mode)) continue;
+        lanes.lineStyle(lineWidth + 0.8 * projection.scale, boardStyle.casing, 0.9);
+        this.strokePath(lanes, toScreen(sectionLane(section, mode)));
+      }
+      for (const mode of transportModes) {
+        if (!section.modes.has(mode)) continue;
+        const path = toScreen(sectionLane(section, mode));
+        lanes.lineStyle(lineWidth, boardStyle.mutedModeColors[mode], activeDetective ? 0.85 : 1);
+        this.strokePath(lanes, path);
+        if (selectedLanes.has(`${section.key}:${mode}`)) {
+          highlights.lineStyle(lineWidth, boardStyle.modeColors[mode], 1);
+          this.strokePath(highlights, path);
+        }
+      }
+    }
+    this.root.add([lanes, highlights]);
 
     const stationRadius = Math.max(12, 14 * projection.scale);
     const labelSize = Math.max(12, Math.round(stationRadius * 1.05));
@@ -545,9 +468,7 @@ export class SchattenjagdRenderer {
         strokeStationShape(stationLayer, shape, centreX, centreY, stationRadius + 7,
           parseColor(activeDetective?.color ?? "#ffffff"), activeDetective?.stationId === station.id ? 4 : 2.5, 1);
       }
-      const availableModes = [...transportModes]
-        .filter((mode) => station.modes.includes(mode))
-        .reverse();
+      const primaryMode = station.modes.includes("metro") ? "metro" : station.modes.includes("bus") ? "bus" : "taxi";
 
       fillStationShape(
         stationLayer,
@@ -559,19 +480,10 @@ export class SchattenjagdRenderer {
         0.98
       );
 
-      availableModes.forEach((mode, index) => {
-        fillStationShape(
-          stationLayer,
-          shape,
-          centreX,
-          centreY,
-          stationRadius - index * 3.1,
-          boardStyle.modeColors[mode],
-          0.98
-        );
-      });
+      fillStationShape(stationLayer, shape, centreX, centreY, stationRadius,
+        boardStyle.modeColors[primaryMode], 1);
 
-      const coreRadius = Math.max(7.2, stationRadius - availableModes.length * 3.1);
+      const coreRadius = stationRadius - 2.8;
       const occupantColor = occupants[0] ? parseColor(occupants[0].color) : boardStyle.casing;
       fillStationShape(
         stationLayer,
@@ -587,10 +499,10 @@ export class SchattenjagdRenderer {
         shape,
         centreX,
         centreY,
-        stationRadius + 0.5,
+        stationRadius + 3.5,
         boardStyle.stationOutline,
-        Math.max(1.1, 1.4 * projection.scale),
-        0.76
+        Math.max(0.8, projection.scale),
+        0.25
       );
     }
 

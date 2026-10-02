@@ -14,6 +14,7 @@ export interface CityBoardStyle {
   stationOuter: number;
   stationOutline: number;
   labelStroke: string;
+  mutedModeColors: Record<TransportMode, number>;
   modeColors: Record<TransportMode, number>;
   modeGlow: Record<TransportMode, number>;
 }
@@ -27,6 +28,7 @@ export const cityBoardStyles: Record<CityMapVariant, CityBoardStyle> = {
     stationOuter: 0x020617,
     stationOutline: 0xf8fafc,
     labelStroke: "#020617",
+    mutedModeColors: { taxi: 0xd9aa3e, bus: 0x37be73, metro: 0x936cd8 },
     modeColors: {
       taxi: 0xf4c95d,
       bus: 0x4ade80,
@@ -46,6 +48,7 @@ export const cityBoardStyles: Record<CityMapVariant, CityBoardStyle> = {
     stationOuter: 0xfffbf2,
     stationOutline: 0x26354a,
     labelStroke: "#26354a",
+    mutedModeColors: { taxi: 0xb48612, bus: 0x158c57, metro: 0x8257cf },
     modeColors: {
       taxi: 0xb66c00,
       bus: 0x087443,

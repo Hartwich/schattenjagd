@@ -1,6 +1,7 @@
 import { schattenjagdConfig, transportModes, type TransportMode } from "../config.js";
 import type { StationLink, StationNode, TransitMap } from "../protocol.js";
 import { fixedCityStations } from "./cityStations.js";
+import { alignTransportStops } from "./cityNetwork.js";
 import { createSeededRandom, type SeededRandom } from "./rng.js";
 
 interface Point {
@@ -274,6 +275,18 @@ function buildTaxiLinks(
   }
 
   connectComponents(stations, linkSet, "taxi");
+
+  // A connected graph can still contain cul-de-sacs. Each station needs at
+  // least two different road neighbours, not merely two transport modes.
+  for (const station of stations) {
+    const neighbours = stations
+      .filter(candidate => candidate.id !== station.id)
+      .sort((left, right) => distance(station, left) - distance(station, right));
+    for (const neighbour of neighbours) {
+      if (linkSet.degreeOf(station.id, "taxi") >= Math.min(2, stations.length - 1)) break;
+      linkSet.add(station.id, neighbour.id, "taxi");
+    }
+  }
 }
 
 function buildLayerLinks(
@@ -394,11 +407,11 @@ export function generateTransitMap(
     }
   }
 
-  return {
+  return alignTransportStops({
     width,
     height,
     stations: nodes,
     links: linkSet.links.sort((left, right) => left.a - right.a || left.b - right.b),
     neighbours
-  };
+  });
 }

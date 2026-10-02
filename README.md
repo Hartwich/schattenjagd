@@ -1,6 +1,6 @@
 # Schattenjagd
 
-Verfolgungsspiel mit verdeckter Bewegung fuer Open Party Lab. Ein Spieler reist als "Der Schatten" unsichtbar durch ein zufaellig erzeugtes Verkehrsnetz, alle anderen jagen ihn als Ermittler.
+Verfolgungsspiel mit verdeckter Bewegung fuer Open Party Lab. Ein Spieler reist als "Der Schatten" unsichtbar durch ein festes Verkehrsnetz, alle anderen jagen ihn als Ermittler.
 
 ## Status
 
@@ -8,10 +8,11 @@ Alpha. Der komplette Spielablauf ist spielbar: Kartengenerierung, Zugphasen, Tic
 
 ## Regeln in Kurzform
 
-- Gespielt wird auf einer festen, illustrierten Stadtkarte mit 64 Stationen und drei Verkehrsebenen (Taxi, Bus, Metro). Der Server waehlt beim Rundenstart passend zum Raum-Theme die Nacht- oder Tagesansicht; waehrend einer laufenden Runde bleibt diese Variante unveraendert. Stationen liegen auf Kreuzungen und Bruecken; die Linien und Bewegungsanimationen folgen den sichtbaren Strassenzuegen. Kreis-, Quadrat- und Sechseckstationen zeigen mit konzentrischen Farbflaechen alle dort verfuegbaren Verkehrsmittel. Ermittler besetzen das Stationszentrum in ihrer Spielerfarbe.
+- Gespielt wird auf einer festen, illustrierten Stadtkarte mit 64 Stationen und drei Verkehrsebenen (Taxi, Bus, Metro). Der Server waehlt beim Rundenstart passend zum Raum-Theme die Nacht- oder Tagesansicht; waehrend einer laufenden Runde bleibt diese Variante unveraendert. Ein schematisches Strassennetz verbindet alle Stationen. Metro verlaeuft oben/links, Bus mittig und Taxi unten/rechts auf denselben Abschnitten. Die Haltestellen tragen nur einen farbigen Rand: Taxi gelb/rund, Bus gruen/quadratisch, Metro violett/sechseckig. An Bus-Stationen halten weiterhin Taxis, an Metro-Stationen auch Busse und Taxis. Ermittler besetzen das Stationszentrum in ihrer Spielerfarbe.
 - 22 Zuege. In den Zuegen 3, 8, 13, 18 und 22 wird die Position des Schattens oeffentlich sichtbar.
 - Pro Zug zieht zuerst der Schatten, danach jede ermittelnde Person einzeln in fester Sitzreihenfolge. Jede Person erhaelt ihr eigenes Zeitfenster. Nach Zeitablauf bleibt nur diese Person stehen; getrennte Spieler und Personen ohne legalen Zug werden uebersprungen.
-- Das Verkehrsnetz wird aus den echten Verbindungen gezeichnet: getrennte Spuren, eingefasste Kreuzungen ohne Umstieg und hervorgehobene legale Strecken/Ziele fuer die aktive Person. Nur nummerierte Stationen sind Haltestellen.
+- Das Verkehrsnetz wird aus den echten Verbindungen gezeichnet. Gemeinsame Strassenabschnitte mit deckungsgleichen Knicken ersetzen die individuellen Routen; die schmalen Farbspuren liegen direkt nebeneinander. Die ruhigen Grundfarben werden fuer legale Strecken/Ziele der aktiven Person kraeftig hervorgehoben. Nur nummerierte Stationen sind Haltestellen, an unnummerierten Kreuzungen kann man nicht umsteigen. Jede Station hat mindestens zwei unterschiedliche Taxi-Nachbarn und damit keine Sackgasse; Station 6 besitzt getrennte Zugaenge aus mehreren Richtungen.
+- Ein Ticket fuehrt zur naechsten Haltestelle des jeweiligen Verkehrsmittels. Bus und Metro passieren kleinere Haltestellen, ueberspringen aber keine Station, an der ihr Verkehrsmittel haelt. Diese Netz-Anpassung entfernt die bisherigen, auf einer gemeinsamen Linie nicht erkennbaren Express-Abkuerzungen.
 - Der Schatten reist unbegrenzt, verraet aber nach jedem Zug das benutzte Verkehrsmittel.
 - Ermittler haben ein begrenztes Ticketkonto: 12 Taxi, 9 Bus, 5 Metro.
 - Zwei Sonderzuege des Schattens: **Schleier** verbirgt das Verkehrsmittel, **Doppelzug** erlaubt zwei Zuege hintereinander.
@@ -82,6 +83,7 @@ Karte, Stationsnetz, Namen, Rollenbezeichnungen, Regelwerte, Texte und Grafik di
 npm install
 npm run typecheck
 npm run build
+npm test
 ```
 
 ## Lizenz
