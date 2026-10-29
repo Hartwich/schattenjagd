@@ -1,8 +1,10 @@
+import { schattenjagdCatalogText } from "./text.js";
 import type { GameManifest } from "@open-party-lab/game-core";
 import { schattenjagdRoomSettingKeys, schattenjagdSetupConfig } from "./config.js";
 
 export const schattenjagdManifest = {
   id: "schattenjagd",
+  translations: schattenjagdCatalogText,
   displayName: "Schattenjagd",
   description: "Ermittler jagen einen verdeckt reisenden Schatten durch ein zufaellig erzeugtes Verkehrsnetz.",
   minPlayers: 3,

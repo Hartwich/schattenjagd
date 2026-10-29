@@ -1,3 +1,4 @@
+import type { LocalizedGameTextMap } from "@open-party-lab/game-core";
 import type { TransportMode } from "./config.js";
 
 export type SchattenjagdLanguage = "de" | "en";
@@ -228,3 +229,137 @@ export const schattenjagdText: Record<SchattenjagdLanguage, SchattenjagdText> = 
 export function getSchattenjagdText(language?: string): SchattenjagdText {
   return language === "en" ? schattenjagdText.en : schattenjagdText.de;
 }
+
+
+export const schattenjagdCatalogText = {
+  "de": {
+    "displayName": "Schattenjagd",
+    "description": "Ermittler jagen einen verdeckt reisenden Schatten durch ein zufaellig erzeugtes Verkehrsnetz.",
+    "lobbySetup": {
+      "title": "Schattenjagd Setup",
+      "description": "Lege fest, wer den Schatten spielt. Alle uebrigen Spieler ermitteln gemeinsam.",
+      "fields": {
+        "shadowMode": {
+          "label": "Schatten",
+          "description": "Zufaellig, per Sitzplatz oder komplett vom Server gesteuert.",
+          "options": {
+            "random": {
+              "label": "Zufaelliger Spieler",
+              "description": "Ein Spieler wird geheim ausgelost."
+            },
+            "seat": {
+              "label": "Fester Sitzplatz",
+              "description": "Spieler mit der gewaehlten Platznummer."
+            },
+            "ai": {
+              "label": "Server-KI",
+              "description": "Alle Spieler ermitteln gegen die KI."
+            }
+          }
+        },
+        "turnTime": {
+          "label": "Zugzeit",
+          "description": "Zeitfenster pro Zug fuer Schatten und Ermittler.",
+          "options": {
+            "20": {
+              "label": "20 Sekunden",
+              "description": "Sehr schnelles Tempo."
+            },
+            "30": {
+              "label": "30 Sekunden",
+              "description": "Zuegig."
+            },
+            "45": {
+              "label": "45 Sekunden",
+              "description": "Ausgewogen."
+            },
+            "60": {
+              "label": "60 Sekunden",
+              "description": "Entspannt."
+            },
+            "90": {
+              "label": "90 Sekunden",
+              "description": "Viel Bedenkzeit."
+            },
+            "off": {
+              "label": "Ohne Zeitlimit",
+              "description": "Kein Countdown, es wird auf jeden Zug gewartet."
+            }
+          }
+        },
+        "shadowSeat": {
+          "label": "Sitzplatz des Schattens",
+          "description": "Nur relevant bei fester Sitzplatzwahl. Platz 1 ist der zuerst beigetretene Spieler."
+        }
+      }
+    },
+    "visual": {
+      "eyebrow": "Schatten"
+    }
+  },
+  "en": {
+    "displayName": "Shadow Hunt",
+    "description": "Investigators hunt a hidden fugitive across a procedurally generated transit network.",
+    "lobbySetup": {
+      "title": "Shadow Hunt setup",
+      "description": "Choose who plays the shadow. Everyone else investigates together.",
+      "fields": {
+        "shadowMode": {
+          "label": "Shadow",
+          "description": "Choose randomly, by seat number, or let the server take control.",
+          "options": {
+            "random": {
+              "label": "Random player",
+              "description": "One player is chosen in secret."
+            },
+            "seat": {
+              "label": "Fixed seat",
+              "description": "The player with the selected seat number."
+            },
+            "ai": {
+              "label": "Server AI",
+              "description": "All players investigate against the AI."
+            }
+          }
+        },
+        "turnTime": {
+          "label": "Turn duration",
+          "description": "Time available for each shadow or investigator turn.",
+          "options": {
+            "20": {
+              "label": "20 seconds",
+              "description": "Very fast-paced."
+            },
+            "30": {
+              "label": "30 seconds",
+              "description": "Brisk."
+            },
+            "45": {
+              "label": "45 seconds",
+              "description": "Balanced."
+            },
+            "60": {
+              "label": "60 seconds",
+              "description": "Relaxed."
+            },
+            "90": {
+              "label": "90 seconds",
+              "description": "Plenty of thinking time."
+            },
+            "off": {
+              "label": "No time limit",
+              "description": "No countdown; every turn waits for its player."
+            }
+          }
+        },
+        "shadowSeat": {
+          "label": "Shadow's seat",
+          "description": "Only used with fixed-seat selection. Seat 1 is the first player who joined."
+        }
+      }
+    },
+    "visual": {
+      "eyebrow": "Shadows"
+    }
+  }
+} as const satisfies LocalizedGameTextMap;
